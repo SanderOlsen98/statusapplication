@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-operational: #10b981;
+  --color-degraded: #f59e0b;
+  --color-partial: #f97316;
+  --color-major: #ef4444;
+  --color-maintenance: #6366f1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+
+/* Status indicator pulse animation */
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 50%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Uptime bar styling */
+.uptime-bar {
+  display: flex;
+  gap: 2px;
+  height: 32px;
+}
+
+.uptime-day {
+  flex: 1;
+  min-width: 3px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.uptime-day:hover {
+  transform: scaleY(1.2);
+}
+
+/* Status colors */
+.status-operational { background-color: var(--color-operational); }
+.status-degraded { background-color: var(--color-degraded); }
+.status-partial_outage { background-color: var(--color-partial); }
+.status-major_outage { background-color: var(--color-major); }
+.status-maintenance { background-color: var(--color-maintenance); }
+
+/* Status text colors */
+.text-operational { color: var(--color-operational); }
+.text-degraded { color: var(--color-degraded); }
+.text-partial_outage { color: var(--color-partial); }
+.text-major_outage { color: var(--color-major); }
+.text-maintenance { color: var(--color-maintenance); }
+
+/* Incident status badges */
+.badge-investigating { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.badge-identified { background-color: rgba(249, 115, 22, 0.2); color: #f97316; }
+.badge-monitoring { background-color: rgba(99, 102, 241, 0.2); color: #6366f1; }
+.badge-resolved { background-color: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+/* Form inputs */
+input, textarea, select {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+/* Focus styles */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}
+
