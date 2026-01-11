@@ -8,6 +8,7 @@ import ActiveIncidents from '../components/status/ActiveIncidents'
 import ScheduledMaintenance from '../components/status/ScheduledMaintenance'
 import IncidentHistory from '../components/status/IncidentHistory'
 import MaintenanceHistory from '../components/status/MaintenanceHistory'
+import MetricsDisplay from '../components/status/MetricsDisplay'
 import Footer from '../components/status/Footer'
 
 export default function StatusPage() {
@@ -113,6 +114,9 @@ export default function StatusPage() {
               ))}
             </div>
           </section>
+
+          {/* System Metrics */}
+          <MetricsDisplay />
 
           {/* Incident History */}
           <IncidentHistory incidents={incidentHistory} />

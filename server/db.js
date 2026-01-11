@@ -113,6 +113,59 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+
+  -- Metrics for tracking custom data points
+  CREATE TABLE IF NOT EXISTS metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    suffix TEXT DEFAULT '',
+    description TEXT,
+    display_chart INTEGER DEFAULT 1,
+    default_value REAL,
+    calc_type TEXT DEFAULT 'average',
+    display_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Metric data points
+  CREATE TABLE IF NOT EXISTS metric_points (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric_id INTEGER NOT NULL,
+    value REAL NOT NULL,
+    recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (metric_id) REFERENCES metrics(id) ON DELETE CASCADE
+  );
+
+  -- Subscribers for notifications
+  CREATE TABLE IF NOT EXISTS subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT,
+    webhook_url TEXT,
+    notify_type TEXT DEFAULT 'all',
+    verified INTEGER DEFAULT 0,
+    verify_token TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Subscriber service preferences (which services to monitor)
+  CREATE TABLE IF NOT EXISTS subscriber_services (
+    subscriber_id INTEGER NOT NULL,
+    service_id INTEGER NOT NULL,
+    PRIMARY KEY (subscriber_id, service_id),
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+  );
+
+  -- Incident templates for quick incident creation
+  CREATE TABLE IF NOT EXISTS incident_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    status TEXT DEFAULT 'investigating',
+    impact TEXT DEFAULT 'minor',
+    message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 export default db;

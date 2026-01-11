@@ -6,6 +6,9 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminServices from './pages/admin/AdminServices'
 import AdminIncidents from './pages/admin/AdminIncidents'
 import AdminMaintenance from './pages/admin/AdminMaintenance'
+import AdminTemplates from './pages/admin/AdminTemplates'
+import AdminMetrics from './pages/admin/AdminMetrics'
+import AdminSubscribers from './pages/admin/AdminSubscribers'
 import AdminStats from './pages/admin/AdminStats'
 import AdminSettings from './pages/admin/AdminSettings'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -29,7 +32,10 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="services" element={<AdminServices />} />
         <Route path="incidents" element={<AdminIncidents />} />
+        <Route path="templates" element={<AdminTemplates />} />
         <Route path="maintenance" element={<AdminMaintenance />} />
+        <Route path="metrics" element={<AdminMetrics />} />
+        <Route path="subscribers" element={<AdminSubscribers />} />
         <Route path="stats" element={<AdminStats />} />
         <Route path="settings" element={<AdminSettings />} />
       </Route>
@@ -38,4 +44,3 @@ function App() {
 }
 
 export default App
-

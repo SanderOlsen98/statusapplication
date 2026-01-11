@@ -62,6 +62,32 @@ export const api = {
   triggerMonitorCheck: () => request('/monitor/check', { method: 'POST' }),
   testUrl: (url) => request('/monitor/test', { method: 'POST', body: JSON.stringify({ url }) }),
   getMonitorRecords: (serviceId) => request(`/monitor/records/${serviceId}`),
+
+  // Metrics
+  getMetrics: () => request('/metrics'),
+  getMetric: (id, hours = 24) => request(`/metrics/${id}?hours=${hours}`),
+  getMetricPoints: (id, hours = 24) => request(`/metrics/${id}/points?hours=${hours}`),
+  createMetric: (data) => request('/metrics', { method: 'POST', body: JSON.stringify(data) }),
+  updateMetric: (id, data) => request(`/metrics/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteMetric: (id) => request(`/metrics/${id}`, { method: 'DELETE' }),
+  addMetricPoint: (id, value, recorded_at) => request(`/metrics/${id}/points`, { method: 'POST', body: JSON.stringify({ value, recorded_at }) }),
+
+  // Subscribers
+  getSubscribers: () => request('/subscribers'),
+  getSubscriber: (id) => request(`/subscribers/${id}`),
+  getSubscriberStats: () => request('/subscribers/admin/stats'),
+  createSubscriber: (data) => request('/subscribers', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubscriber: (id, data) => request(`/subscribers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSubscriber: (id) => request(`/subscribers/${id}`, { method: 'DELETE' }),
+  subscribe: (data) => request('/subscribers/subscribe', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Incident Templates
+  getTemplates: () => request('/templates'),
+  getTemplate: (id) => request(`/templates/${id}`),
+  createTemplate: (data) => request('/templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateTemplate: (id, data) => request(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTemplate: (id) => request(`/templates/${id}`, { method: 'DELETE' }),
+  useTemplate: (id, service_ids) => request(`/templates/${id}/use`, { method: 'POST', body: JSON.stringify({ service_ids }) }),
 }
 
 export default api

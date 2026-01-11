@@ -9,6 +9,9 @@ import servicesRoutes from './routes/services.js';
 import incidentsRoutes from './routes/incidents.js';
 import settingsRoutes from './routes/settings.js';
 import monitorRoutes from './routes/monitor.js';
+import metricsRoutes from './routes/metrics.js';
+import subscribersRoutes from './routes/subscribers.js';
+import templatesRoutes from './routes/templates.js';
 import { runMonitorCheck, calculateDailyUptime } from './monitor.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +30,9 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/incidents', incidentsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/monitor', monitorRoutes);
+app.use('/api/metrics', metricsRoutes);
+app.use('/api/subscribers', subscribersRoutes);
+app.use('/api/templates', templatesRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
