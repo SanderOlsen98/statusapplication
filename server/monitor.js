@@ -16,7 +16,11 @@ export async function runMonitorCheck() {
 
       const response = await fetch(service.monitor_url, {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Staytus/1.0 (Status Monitor)',
+          'Accept': 'text/html,application/json,*/*'
+        }
       });
 
       clearTimeout(timeout);

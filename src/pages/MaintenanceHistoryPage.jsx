@@ -1,20 +1,37 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import api from '../../lib/api'
-import { getIncidentStatusConfig, formatDate, formatDateTime } from '../../lib/utils'
+import api from '../lib/api'
+import { getIncidentStatusConfig, formatDate, formatDateTime } from '../lib/utils'
 
-const INITIAL_DISPLAY_COUNT = 5
-
-export default function MaintenanceHistory({ maintenance }) {
+export default function MaintenanceHistoryPage() {
+  const [maintenance, setMaintenance] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [settings, setSettings] = useState({})
   const [expandedItem, setExpandedItem] = useState(null)
 
-  const totalMaintenance = maintenance.length
-  
-  // Limit maintenance items first, then group by date
-  const displayedMaintenance = maintenance.slice(0, INITIAL_DISPLAY_COUNT)
-  
-  // Group displayed maintenance by date
-  const groupedMaintenance = displayedMaintenance.reduce((groups, item) => {
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const [incidentsData, settingsData] = await Promise.all([
+        api.getIncidentHistory(90), // Get 90 days of history
+        api.getSettings()
+      ])
+      // Filter to only scheduled maintenance
+      const filteredMaintenance = incidentsData.filter(i => i.type === 'scheduled')
+      setMaintenance(filteredMaintenance)
+      setSettings(settingsData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Group maintenance by date
+  const groupedMaintenance = maintenance.reduce((groups, item) => {
     const date = new Date(item.scheduled_for || item.created_at).toDateString()
     if (!groups[date]) groups[date] = []
     groups[date].push(item)
@@ -23,59 +40,80 @@ export default function MaintenanceHistory({ maintenance }) {
 
   const dates = Object.keys(groupedMaintenance)
 
-  if (totalMaintenance === 0) {
-    return null // Don't show section if no maintenance history
-  }
-
   return (
-    <section className="animate-slide-up mt-12">
-      <h2 className="text-lg font-semibold text-slate-300 mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-        Past Maintenance
-        {totalMaintenance > 0 && (
-          <span className="text-sm font-normal text-slate-500">({totalMaintenance})</span>
-        )}
-      </h2>
-      <div className="space-y-6">
-        {dates.map((date) => (
-          <div key={date} className="glass rounded-xl overflow-hidden">
-            {/* Date Header */}
-            <div className="px-5 py-3 bg-indigo-900/20 border-b border-white/5">
-              <span className="text-sm font-medium text-slate-400">
-                {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' })}
-              </span>
-            </div>
-
-            {/* Maintenance for this date */}
-            <div className="divide-y divide-white/5">
-              {groupedMaintenance[date].map((item) => (
-                <MaintenanceItem 
-                  key={item.id}
-                  maintenance={item}
-                  isExpanded={expandedItem === item.id}
-                  onToggle={() => setExpandedItem(
-                    expandedItem === item.id ? null : item.id
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Background effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
 
-      {/* View More Link */}
-      {totalMaintenance > INITIAL_DISPLAY_COUNT && (
-        <Link
-          to="/history/maintenance"
-          className="mt-6 w-full py-3 px-4 glass rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          View All {totalMaintenance} Maintenance Events
-        </Link>
-      )}
-    </section>
+      <div className="relative max-w-4xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="mb-8">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Status
+          </Link>
+          
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {settings.site_name || 'Staytus'} - Maintenance History
+          </h1>
+          <p className="text-slate-400">
+            Complete history of all scheduled maintenance windows.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : dates.length === 0 ? (
+          <div className="glass rounded-xl p-12 text-center">
+            <div className="text-5xl mb-4">🔧</div>
+            <h2 className="text-xl font-semibold text-white mb-2">No Maintenance History</h2>
+            <p className="text-slate-400">No scheduled maintenance has been recorded in the last 90 days.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {dates.map((date) => (
+              <div key={date} className="glass rounded-xl overflow-hidden">
+                {/* Date Header */}
+                <div className="px-5 py-3 bg-indigo-900/20 border-b border-white/5">
+                  <span className="text-sm font-medium text-slate-400">
+                    {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+
+                {/* Maintenance for this date */}
+                <div className="divide-y divide-white/5">
+                  {groupedMaintenance[date].map((item) => (
+                    <MaintenanceItem 
+                      key={item.id}
+                      maintenance={item}
+                      isExpanded={expandedItem === item.id}
+                      onToggle={() => setExpandedItem(
+                        expandedItem === item.id ? null : item.id
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-12 text-center text-slate-500 text-sm">
+          Showing maintenance from the last 90 days
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -168,7 +168,22 @@ router.post('/', authenticateToken, (req, res) => {
     display_order || 0
   );
 
-  const service = db.prepare('SELECT * FROM services WHERE id = ?').get(result.lastInsertRowid);
+  const serviceId = result.lastInsertRowid;
+
+  // Initialize uptime history for the new service (last 90 days at 100%)
+  const insertUptime = db.prepare(`
+    INSERT OR IGNORE INTO daily_uptime (service_id, date, uptime_percentage, total_checks, successful_checks)
+    VALUES (?, ?, 100, 1, 1)
+  `);
+
+  for (let i = 89; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    insertUptime.run(serviceId, dateStr);
+  }
+
+  const service = db.prepare('SELECT * FROM services WHERE id = ?').get(serviceId);
   res.status(201).json(service);
 });
 

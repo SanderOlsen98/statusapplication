@@ -1,20 +1,37 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import api from '../../lib/api'
-import { getIncidentStatusConfig, formatDate, formatDateTime } from '../../lib/utils'
+import api from '../lib/api'
+import { getIncidentStatusConfig, formatDate, formatDateTime } from '../lib/utils'
 
-const INITIAL_DISPLAY_COUNT = 5
-
-export default function IncidentHistory({ incidents }) {
+export default function IncidentHistoryPage() {
+  const [incidents, setIncidents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [settings, setSettings] = useState({})
   const [expandedIncident, setExpandedIncident] = useState(null)
 
-  const totalIncidents = incidents.length
-  
-  // Limit incidents first, then group by date
-  const displayedIncidents = incidents.slice(0, INITIAL_DISPLAY_COUNT)
-  
-  // Group displayed incidents by date
-  const groupedIncidents = displayedIncidents.reduce((groups, incident) => {
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const [incidentsData, settingsData] = await Promise.all([
+        api.getIncidentHistory(90), // Get 90 days of history
+        api.getSettings()
+      ])
+      // Filter out scheduled maintenance
+      const filteredIncidents = incidentsData.filter(i => i.type !== 'scheduled')
+      setIncidents(filteredIncidents)
+      setSettings(settingsData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Group incidents by date
+  const groupedIncidents = incidents.reduce((groups, incident) => {
     const date = new Date(incident.created_at).toDateString()
     if (!groups[date]) groups[date] = []
     groups[date].push(incident)
@@ -23,71 +40,81 @@ export default function IncidentHistory({ incidents }) {
 
   const dates = Object.keys(groupedIncidents)
 
-  if (totalIncidents === 0) {
-    return (
-      <section className="animate-slide-up">
-        <h2 className="text-lg font-semibold text-slate-300 mb-6 flex items-center gap-2">
-          <span className="w-2 h-2 bg-slate-500 rounded-full"></span>
-          Past Incidents
-        </h2>
-        <div className="glass rounded-xl p-8 text-center">
-          <div className="text-4xl mb-3">✓</div>
-          <p className="text-slate-400">No incidents reported in the last 14 days.</p>
-          <p className="text-slate-500 text-sm mt-1">All systems have been running smoothly!</p>
-        </div>
-      </section>
-    )
-  }
-
   return (
-    <section className="animate-slide-up">
-      <h2 className="text-lg font-semibold text-slate-300 mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 bg-slate-500 rounded-full"></span>
-        Past Incidents
-        {totalIncidents > 0 && (
-          <span className="text-sm font-normal text-slate-500">({totalIncidents})</span>
-        )}
-      </h2>
-      <div className="space-y-6">
-        {dates.map((date) => (
-          <div key={date} className="glass rounded-xl overflow-hidden">
-            {/* Date Header */}
-            <div className="px-5 py-3 bg-slate-800/50 border-b border-white/5">
-              <span className="text-sm font-medium text-slate-400">
-                {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' })}
-              </span>
-            </div>
-
-            {/* Incidents for this date */}
-            <div className="divide-y divide-white/5">
-              {groupedIncidents[date].map((incident) => (
-                <HistoryItem 
-                  key={incident.id}
-                  incident={incident}
-                  isExpanded={expandedIncident === incident.id}
-                  onToggle={() => setExpandedIncident(
-                    expandedIncident === incident.id ? null : incident.id
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Background effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
 
-      {/* View More Link */}
-      {totalIncidents > INITIAL_DISPLAY_COUNT && (
-        <Link
-          to="/history/incidents"
-          className="mt-6 w-full py-3 px-4 glass rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          View All {totalIncidents} Incidents
-        </Link>
-      )}
-    </section>
+      <div className="relative max-w-4xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="mb-8">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Status
+          </Link>
+          
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {settings.site_name || 'Staytus'} - Incident History
+          </h1>
+          <p className="text-slate-400">
+            Complete history of all past incidents and their resolutions.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : dates.length === 0 ? (
+          <div className="glass rounded-xl p-12 text-center">
+            <div className="text-5xl mb-4">✓</div>
+            <h2 className="text-xl font-semibold text-white mb-2">No Incidents</h2>
+            <p className="text-slate-400">No incidents have been reported in the last 90 days.</p>
+            <p className="text-slate-500 text-sm mt-1">All systems have been running smoothly!</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {dates.map((date) => (
+              <div key={date} className="glass rounded-xl overflow-hidden">
+                {/* Date Header */}
+                <div className="px-5 py-3 bg-slate-800/50 border-b border-white/5">
+                  <span className="text-sm font-medium text-slate-400">
+                    {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+
+                {/* Incidents for this date */}
+                <div className="divide-y divide-white/5">
+                  {groupedIncidents[date].map((incident) => (
+                    <HistoryItem 
+                      key={incident.id}
+                      incident={incident}
+                      isExpanded={expandedIncident === incident.id}
+                      onToggle={() => setExpandedIncident(
+                        expandedIncident === incident.id ? null : incident.id
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-12 text-center text-slate-500 text-sm">
+          Showing incidents from the last 90 days
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -194,3 +221,4 @@ function HistoryItem({ incident, isExpanded, onToggle }) {
     </div>
   )
 }
+

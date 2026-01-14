@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import StatusPage from './pages/StatusPage'
+import IncidentHistoryPage from './pages/IncidentHistoryPage'
+import MaintenanceHistoryPage from './pages/MaintenanceHistoryPage'
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -18,6 +20,8 @@ function App() {
     <Routes>
       {/* Public Status Page */}
       <Route path="/" element={<StatusPage />} />
+      <Route path="/history/incidents" element={<IncidentHistoryPage />} />
+      <Route path="/history/maintenance" element={<MaintenanceHistoryPage />} />
       
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLogin />} />

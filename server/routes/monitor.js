@@ -44,7 +44,11 @@ router.post('/test', authenticateToken, async (req, res) => {
 
     const response = await fetch(url, {
       method: 'GET',
-      signal: controller.signal
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Staytus/1.0 (Status Monitor)',
+        'Accept': 'text/html,application/json,*/*'
+      }
     });
 
     clearTimeout(timeout);
