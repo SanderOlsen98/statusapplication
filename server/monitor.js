@@ -1,47 +1,119 @@
 import db from './db.js';
+import { execSync } from 'child_process';
+import { notifyServiceStatusChange } from './notifications.js';
 
-// Run health checks on all services with HTTP monitoring
+// Run health checks on all services with HTTP or Ping monitoring
 export async function runMonitorCheck() {
   const services = db.prepare(`
-    SELECT id, name, monitor_url, monitor_type 
+    SELECT id, name, description, monitor_url, monitor_type, status 
     FROM services 
-    WHERE monitor_type = 'http' AND monitor_url IS NOT NULL AND monitor_url != ''
+    WHERE monitor_type IN ('http', 'ping') AND monitor_url IS NOT NULL AND monitor_url != ''
   `).all();
 
   for (const service of services) {
-    try {
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+    if (service.monitor_type === 'ping') {
+      await runPingCheck(service);
+    } else {
+      await runHttpCheck(service);
+    }
+  }
+}
 
-      const response = await fetch(service.monitor_url, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Staytus/1.0 (Status Monitor)',
-          'Accept': 'text/html,application/json,*/*'
-        }
-      });
+// Run HTTP health check for a service
+async function runHttpCheck(service) {
+  const oldStatus = service.status || 'operational';
+  
+  try {
+    const startTime = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-      clearTimeout(timeout);
-      const responseTime = Date.now() - startTime;
-      const status = response.ok ? 'operational' : 'degraded';
+    const response = await fetch(service.monitor_url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Staytus/1.0 (Status Monitor)',
+        'Accept': 'text/html,application/json,*/*'
+      }
+    });
 
-      // Update service status
-      db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(status, service.id);
+    clearTimeout(timeout);
+    const responseTime = Date.now() - startTime;
+    const newStatus = response.ok ? 'operational' : 'degraded';
 
-      // Record uptime entry
-      db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
-        .run(service.id, status, responseTime);
+    // Update service status
+    db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(newStatus, service.id);
 
-    } catch (error) {
-      // Service is down or unreachable
-      db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
-        .run('major_outage', service.id);
+    // Record uptime entry
+    db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
+      .run(service.id, newStatus, responseTime);
 
-      db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
-        .run(service.id, 'major_outage', null);
+    // Send notification if status changed
+    if (oldStatus !== newStatus) {
+      await notifyServiceStatusChange(service, oldStatus, newStatus);
+    }
+
+  } catch (error) {
+    const newStatus = 'major_outage';
+    
+    // Service is down or unreachable
+    db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(newStatus, service.id);
+
+    db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
+      .run(service.id, newStatus, null);
+
+    // Send notification if status changed
+    if (oldStatus !== newStatus) {
+      await notifyServiceStatusChange(service, oldStatus, newStatus);
+    }
+  }
+}
+
+// Run Ping health check for a service
+async function runPingCheck(service) {
+  const oldStatus = service.status || 'operational';
+  
+  try {
+    const startTime = Date.now();
+    
+    // Use ping command - 1 packet, 5 second timeout
+    const isWindows = process.platform === 'win32';
+    const pingCmd = isWindows 
+      ? `ping -n 1 -w 5000 ${service.monitor_url}`
+      : `ping -c 1 -W 5 ${service.monitor_url}`;
+    
+    execSync(pingCmd, { timeout: 10000, stdio: 'pipe' });
+    const responseTime = Date.now() - startTime;
+    const newStatus = 'operational';
+
+    // Update service status
+    db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(newStatus, service.id);
+
+    // Record uptime entry
+    db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
+      .run(service.id, newStatus, responseTime);
+
+    // Send notification if status changed
+    if (oldStatus !== newStatus) {
+      await notifyServiceStatusChange(service, oldStatus, newStatus);
+    }
+
+  } catch (error) {
+    const newStatus = 'major_outage';
+    
+    // Service is down or unreachable
+    db.prepare('UPDATE services SET status = ?, last_check = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(newStatus, service.id);
+
+    db.prepare('INSERT INTO uptime_records (service_id, status, response_time) VALUES (?, ?, ?)')
+      .run(service.id, newStatus, null);
+
+    // Send notification if status changed
+    if (oldStatus !== newStatus) {
+      await notifyServiceStatusChange(service, oldStatus, newStatus);
     }
   }
 }

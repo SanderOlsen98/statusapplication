@@ -31,12 +31,42 @@ router.get('/records/:serviceId', authenticateToken, (req, res) => {
 
 // Test a URL (admin only)
 router.post('/test', authenticateToken, async (req, res) => {
-  const { url } = req.body;
+  const { url, type } = req.body;
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
+  // Handle ping test
+  if (type === 'ping') {
+    try {
+      const { execSync } = await import('child_process');
+      const startTime = Date.now();
+      
+      // Use ping command - 1 packet, 5 second timeout
+      const isWindows = process.platform === 'win32';
+      const pingCmd = isWindows 
+        ? `ping -n 1 -w 5000 ${url}`
+        : `ping -c 1 -W 5 ${url}`;
+      
+      execSync(pingCmd, { timeout: 10000, stdio: 'pipe' });
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        responseTime,
+        ok: true
+      });
+    } catch (error) {
+      res.json({
+        success: false,
+        error: 'Host unreachable or ping failed'
+      });
+    }
+    return;
+  }
+
+  // Handle HTTP test
   try {
     const startTime = Date.now();
     const controller = new AbortController();

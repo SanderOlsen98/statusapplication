@@ -175,9 +175,9 @@ export default function AdminServices() {
                             <span className={`text-sm ${statusConfig.textColor}`}>
                               {statusConfig.label}
                             </span>
-                            {service.monitor_type === 'http' && service.monitor_url && (
+                            {(service.monitor_type === 'http' || service.monitor_type === 'ping') && service.monitor_url && (
                               <span className="text-slate-600 text-xs font-mono">
-                                {service.monitor_url}
+                                {service.monitor_type === 'ping' ? `ping: ${service.monitor_url}` : service.monitor_url}
                               </span>
                             )}
                           </div>
@@ -271,7 +271,7 @@ function ServiceModal({ service, groups, onSave, onClose }) {
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await api.testUrl(formData.monitor_url)
+      const result = await api.testUrl(formData.monitor_url, formData.monitor_type)
       setTestResult(result)
     } catch (error) {
       setTestResult({ success: false, error: error.message })
@@ -357,8 +357,45 @@ function ServiceModal({ service, groups, onSave, onClose }) {
             >
               <option value="manual">Manual</option>
               <option value="http">HTTP Check</option>
+              <option value="ping">Ping</option>
             </select>
           </div>
+
+          {formData.monitor_type === 'ping' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Host to Ping</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.monitor_url}
+                  onChange={(e) => setFormData({ ...formData, monitor_url: e.target.value })}
+                  placeholder="example.com or 192.168.1.1"
+                  className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestUrl}
+                  disabled={testing || !formData.monitor_url}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {testing ? 'Testing...' : 'Test'}
+                </button>
+              </div>
+              {testResult && (
+                <div className={`mt-2 p-3 rounded-lg text-sm ${
+                  testResult.success && testResult.ok 
+                    ? 'bg-emerald-500/20 text-emerald-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  {testResult.success && testResult.ok ? (
+                    <>✓ Host is reachable ({testResult.responseTime}ms)</>
+                  ) : (
+                    <>✕ {testResult.error || 'Host unreachable'}</>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {formData.monitor_type === 'http' && (
             <div>

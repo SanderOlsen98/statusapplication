@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { sendTestNotification } from '../notifications.js';
 
 const router = express.Router();
 
@@ -92,6 +93,18 @@ router.put('/', authenticateToken, (req, res) => {
   }
 
   res.json(settings);
+});
+
+// Test Mattermost webhook
+router.post('/test-mattermost', authenticateToken, async (req, res) => {
+  const { webhook_url, channel, username } = req.body;
+
+  if (!webhook_url) {
+    return res.status(400).json({ success: false, error: 'Webhook URL is required' });
+  }
+
+  const result = await sendTestNotification(webhook_url, channel, username);
+  res.json(result);
 });
 
 export default router;

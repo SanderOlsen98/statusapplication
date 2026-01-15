@@ -60,7 +60,7 @@ export const api = {
 
   // Monitor
   triggerMonitorCheck: () => request('/monitor/check', { method: 'POST' }),
-  testUrl: (url) => request('/monitor/test', { method: 'POST', body: JSON.stringify({ url }) }),
+  testUrl: (url, type = 'http') => request('/monitor/test', { method: 'POST', body: JSON.stringify({ url, type }) }),
   getMonitorRecords: (serviceId) => request(`/monitor/records/${serviceId}`),
 
   // Metrics
