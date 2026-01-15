@@ -73,22 +73,56 @@ router.get('/:id', (req, res) => {
 // Get uptime for a service (public)
 router.get('/:id/uptime', (req, res) => {
   const days = parseInt(req.query.days) || 90;
+  const today = new Date().toISOString().split('T')[0];
   
+  // Get historical uptime data (excluding today)
   const uptime = db.prepare(`
     SELECT date, uptime_percentage, avg_response_time, total_checks, successful_checks
     FROM daily_uptime
-    WHERE service_id = ?
+    WHERE service_id = ? AND date != ?
     ORDER BY date DESC
     LIMIT ?
-  `).all(req.params.id, days);
+  `).all(req.params.id, today, days - 1);
+
+  // Calculate today's uptime from actual uptime_records
+  const todayRecords = db.prepare(`
+    SELECT status, response_time
+    FROM uptime_records
+    WHERE service_id = ? AND date(checked_at) = ?
+  `).all(req.params.id, today);
+
+  let todayData = null;
+  if (todayRecords.length > 0) {
+    const totalChecks = todayRecords.length;
+    const successfulChecks = todayRecords.filter(r => r.status === 'operational').length;
+    const uptimePercentage = (successfulChecks / totalChecks) * 100;
+    const responseTimes = todayRecords.filter(r => r.response_time).map(r => r.response_time);
+    const avgResponseTime = responseTimes.length > 0 
+      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+      : null;
+    
+    todayData = {
+      date: today,
+      uptime_percentage: uptimePercentage.toFixed(2),
+      avg_response_time: avgResponseTime,
+      total_checks: totalChecks,
+      successful_checks: successfulChecks
+    };
+  }
+
+  // Combine historical data with today's real-time data
+  const allDays = uptime.reverse();
+  if (todayData) {
+    allDays.push(todayData);
+  }
 
   // Calculate overall uptime percentage
-  const totalPercentage = uptime.reduce((sum, day) => sum + parseFloat(day.uptime_percentage), 0);
-  const overallUptime = uptime.length > 0 ? (totalPercentage / uptime.length).toFixed(2) : 100;
+  const totalPercentage = allDays.reduce((sum, day) => sum + parseFloat(day.uptime_percentage), 0);
+  const overallUptime = allDays.length > 0 ? (totalPercentage / allDays.length).toFixed(2) : 100;
 
   res.json({
     overall_uptime: overallUptime,
-    days: uptime.reverse()
+    days: allDays
   });
 });
 
@@ -170,13 +204,14 @@ router.post('/', authenticateToken, (req, res) => {
 
   const serviceId = result.lastInsertRowid;
 
-  // Initialize uptime history for the new service (last 90 days at 100%)
+  // Initialize uptime history for the new service (last 89 days at 100%, excluding today)
+  // Today's uptime will be calculated from actual monitoring checks
   const insertUptime = db.prepare(`
     INSERT OR IGNORE INTO daily_uptime (service_id, date, uptime_percentage, total_checks, successful_checks)
     VALUES (?, ?, 100, 1, 1)
   `);
 
-  for (let i = 89; i >= 0; i--) {
+  for (let i = 89; i >= 1; i--) {  // Start from 1 to exclude today
     const date = new Date();
     date.setDate(date.getDate() - i);
     const dateStr = date.toISOString().split('T')[0];

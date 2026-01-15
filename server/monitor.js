@@ -71,9 +71,25 @@ async function runHttpCheck(service) {
   }
 }
 
+// Extract hostname from URL or return as-is if already a hostname
+function extractHostname(input) {
+  try {
+    // If it looks like a URL, parse it
+    if (input.includes('://')) {
+      const url = new URL(input);
+      return url.hostname;
+    }
+    // Otherwise return as-is (already a hostname/IP)
+    return input;
+  } catch {
+    return input;
+  }
+}
+
 // Run Ping health check for a service
 async function runPingCheck(service) {
   const oldStatus = service.status || 'operational';
+  const host = extractHostname(service.monitor_url);
   
   try {
     const startTime = Date.now();
@@ -81,8 +97,8 @@ async function runPingCheck(service) {
     // Use ping command - 1 packet, 5 second timeout
     const isWindows = process.platform === 'win32';
     const pingCmd = isWindows 
-      ? `ping -n 1 -w 5000 ${service.monitor_url}`
-      : `ping -c 1 -W 5 ${service.monitor_url}`;
+      ? `ping -n 1 -w 5000 ${host}`
+      : `ping -c 1 -W 5 ${host}`;
     
     execSync(pingCmd, { timeout: 10000, stdio: 'pipe' });
     const responseTime = Date.now() - startTime;
