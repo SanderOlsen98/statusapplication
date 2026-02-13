@@ -83,10 +83,10 @@ export function getImpactConfig(impact) {
   return IMPACT_CONFIG[impact] || IMPACT_CONFIG.minor
 }
 
-// Date formatting
+// Date formatting - Norwegian locale with 24-hour time
 export function formatDate(dateString, options = {}) {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('nb-NO', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -95,19 +95,42 @@ export function formatDate(dateString, options = {}) {
 }
 
 export function formatDateTime(dateString) {
-  const date = new Date(dateString)
-  return date.toLocaleString('en-US', {
+  if (!dateString) return ''
+  
+  // Timestamps with space separator (e.g., "2026-02-13 09:25:52") are from SQLite CURRENT_TIMESTAMP (UTC)
+  // Timestamps with T separator (e.g., "2026-02-13T10:30") are from datetime-local input (local time)
+  let normalizedDateString = dateString
+  
+  if (dateString.includes(' ') && !dateString.includes('T')) {
+    // SQLite CURRENT_TIMESTAMP format - treat as UTC
+    normalizedDateString = dateString.replace(' ', 'T') + 'Z'
+  }
+  // datetime-local input format (with T) - already local time, don't add Z
+  
+  const date = new Date(normalizedDateString)
+  return date.toLocaleString('nb-NO', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: false
   })
 }
 
 export function formatRelativeTime(dateString) {
-  const date = new Date(dateString)
+  // Database stores timestamps in UTC without the Z suffix
+  // Append Z if the string doesn't already have timezone info
+  let normalizedDateString = dateString
+  if (dateString && !dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('T')) {
+    // Format: "2026-02-13 09:25:52" -> "2026-02-13T09:25:52Z"
+    normalizedDateString = dateString.replace(' ', 'T') + 'Z'
+  } else if (dateString && dateString.includes('T') && !dateString.includes('Z') && !dateString.includes('+')) {
+    // Format: "2026-02-13T09:25:52" -> "2026-02-13T09:25:52Z"
+    normalizedDateString = dateString + 'Z'
+  }
+  
+  const date = new Date(normalizedDateString)
   const now = new Date()
   const diffMs = now - date
   const diffMins = Math.floor(diffMs / 60000)

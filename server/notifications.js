@@ -149,6 +149,57 @@ export async function notifyServiceStatusChange(service, oldStatus, newStatus) {
   });
 }
 
+// Auto-complete scheduled maintenance when end time has passed
+export function autoCompleteScheduledMaintenance() {
+  try {
+    // Get current local time in ISO format (without timezone) for comparison
+    // since scheduled_until is stored in local time from datetime-local input
+    const now = new Date();
+    const localNow = now.getFullYear() + '-' + 
+      String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+      String(now.getDate()).padStart(2, '0') + 'T' + 
+      String(now.getHours()).padStart(2, '0') + ':' + 
+      String(now.getMinutes()).padStart(2, '0');
+
+    // Find scheduled maintenance that:
+    // 1. Has a scheduled_until time that has passed
+    // 2. Is not already resolved
+    const expiredMaintenance = db.prepare(`
+      SELECT * FROM incidents 
+      WHERE is_scheduled = 1 
+        AND status != 'resolved' 
+        AND scheduled_until IS NOT NULL 
+        AND scheduled_until != ''
+        AND scheduled_until <= ?
+    `).all(localNow);
+
+    if (expiredMaintenance.length === 0) {
+      return;
+    }
+
+    const resolvedAt = new Date().toISOString();
+
+    for (const maintenance of expiredMaintenance) {
+      // Update the incident to resolved
+      db.prepare(`
+        UPDATE incidents 
+        SET status = 'resolved', resolved_at = ? 
+        WHERE id = ?
+      `).run(resolvedAt, maintenance.id);
+
+      // Add an automatic update message
+      db.prepare(`
+        INSERT INTO incident_updates (incident_id, status, message)
+        VALUES (?, 'resolved', 'Maintenance window completed automatically.')
+      `).run(maintenance.id);
+
+      console.log(`✅ Auto-completed scheduled maintenance: ${maintenance.title} (ID: ${maintenance.id})`);
+    }
+  } catch (error) {
+    console.error('Error auto-completing scheduled maintenance:', error);
+  }
+}
+
 // Send incident notification
 export async function notifyIncident(incident, type = 'created') {
   const impactEmoji = {

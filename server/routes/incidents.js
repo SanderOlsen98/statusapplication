@@ -10,8 +10,8 @@ router.get('/', (req, res) => {
   
   let query = `
     SELECT i.*, 
-      GROUP_CONCAT(s.id) as service_ids,
-      GROUP_CONCAT(s.name) as service_names
+      GROUP_CONCAT(DISTINCT s.id) as service_ids,
+      GROUP_CONCAT(DISTINCT s.name) as service_names
     FROM incidents i
     LEFT JOIN incident_services is_link ON i.id = is_link.incident_id
     LEFT JOIN services s ON is_link.service_id = s.id
@@ -48,7 +48,14 @@ router.get('/', (req, res) => {
 
   const incidents = db.prepare(query).all(...params);
 
-  // Parse the concatenated service data
+  // Fetch updates for each incident
+  const getUpdates = db.prepare(`
+    SELECT * FROM incident_updates
+    WHERE incident_id = ?
+    ORDER BY created_at DESC
+  `);
+
+  // Parse the concatenated service data and include updates
   const result = incidents.map(incident => ({
     ...incident,
     affected_services: incident.service_ids
@@ -57,6 +64,7 @@ router.get('/', (req, res) => {
           name: incident.service_names.split(',')[idx]
         }))
       : [],
+    updates: getUpdates.all(incident.id),
     service_ids: undefined,
     service_names: undefined
   }));
@@ -68,8 +76,8 @@ router.get('/', (req, res) => {
 router.get('/active', (req, res) => {
   const incidents = db.prepare(`
     SELECT i.*, 
-      GROUP_CONCAT(s.id) as service_ids,
-      GROUP_CONCAT(s.name) as service_names
+      GROUP_CONCAT(DISTINCT s.id) as service_ids,
+      GROUP_CONCAT(DISTINCT s.name) as service_names
     FROM incidents i
     LEFT JOIN incident_services is_link ON i.id = is_link.incident_id
     LEFT JOIN services s ON is_link.service_id = s.id
@@ -78,6 +86,13 @@ router.get('/active', (req, res) => {
     ORDER BY i.created_at DESC
   `).all();
 
+  // Fetch updates for each incident
+  const getUpdates = db.prepare(`
+    SELECT * FROM incident_updates
+    WHERE incident_id = ?
+    ORDER BY created_at DESC
+  `);
+
   const result = incidents.map(incident => ({
     ...incident,
     affected_services: incident.service_ids
@@ -85,25 +100,33 @@ router.get('/active', (req, res) => {
           id: parseInt(id),
           name: incident.service_names.split(',')[idx]
         }))
-      : []
+      : [],
+    updates: getUpdates.all(incident.id)
   }));
 
   res.json(result);
 });
 
-// Get upcoming scheduled maintenance (public)
+// Get upcoming/active scheduled maintenance (public) - excludes resolved
 router.get('/scheduled', (req, res) => {
   const incidents = db.prepare(`
     SELECT i.*, 
-      GROUP_CONCAT(s.id) as service_ids,
-      GROUP_CONCAT(s.name) as service_names
+      GROUP_CONCAT(DISTINCT s.id) as service_ids,
+      GROUP_CONCAT(DISTINCT s.name) as service_names
     FROM incidents i
     LEFT JOIN incident_services is_link ON i.id = is_link.incident_id
     LEFT JOIN services s ON is_link.service_id = s.id
-    WHERE i.is_scheduled = 1 AND (i.status != 'resolved' OR i.scheduled_for > datetime('now'))
+    WHERE i.is_scheduled = 1 AND i.status != 'resolved'
     GROUP BY i.id
     ORDER BY i.scheduled_for ASC
   `).all();
+
+  // Fetch updates for each incident
+  const getUpdates = db.prepare(`
+    SELECT * FROM incident_updates
+    WHERE incident_id = ?
+    ORDER BY created_at DESC
+  `);
 
   const result = incidents.map(incident => ({
     ...incident,
@@ -112,7 +135,8 @@ router.get('/scheduled', (req, res) => {
           id: parseInt(id),
           name: incident.service_names.split(',')[idx]
         }))
-      : []
+      : [],
+    updates: getUpdates.all(incident.id)
   }));
 
   res.json(result);
@@ -153,7 +177,7 @@ router.get('/:id', (req, res) => {
   });
 });
 
-// Get incident history (public) - resolved incidents for the past X days
+// Get incident history (public) - incidents from the past X days (created or resolved within timeframe)
 router.get('/history/:days', (req, res) => {
   const days = parseInt(req.params.days) || 7;
   
@@ -165,9 +189,17 @@ router.get('/history/:days', (req, res) => {
     LEFT JOIN incident_services is_link ON i.id = is_link.incident_id
     LEFT JOIN services s ON is_link.service_id = s.id
     WHERE i.created_at >= datetime('now', '-' || ? || ' days')
+       OR i.resolved_at >= datetime('now', '-' || ? || ' days')
     GROUP BY i.id
-    ORDER BY i.created_at DESC
-  `).all(days);
+    ORDER BY COALESCE(i.resolved_at, i.created_at) DESC
+  `).all(days, days);
+
+  // Fetch updates for each incident
+  const getUpdates = db.prepare(`
+    SELECT * FROM incident_updates
+    WHERE incident_id = ?
+    ORDER BY created_at DESC
+  `);
 
   const result = incidents.map(incident => ({
     ...incident,
@@ -176,7 +208,8 @@ router.get('/history/:days', (req, res) => {
           id: parseInt(id),
           name: incident.service_names.split(',')[idx]
         }))
-      : []
+      : [],
+    updates: getUpdates.all(incident.id)
   }));
 
   res.json(result);

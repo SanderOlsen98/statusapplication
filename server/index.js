@@ -13,6 +13,7 @@ import metricsRoutes from './routes/metrics.js';
 import subscribersRoutes from './routes/subscribers.js';
 import templatesRoutes from './routes/templates.js';
 import { runMonitorCheck, calculateDailyUptime } from './monitor.js';
+import { autoCompleteScheduledMaintenance } from './notifications.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -50,6 +51,11 @@ if (process.env.NODE_ENV === 'production') {
 // Schedule monitoring checks every minute
 cron.schedule('* * * * *', () => {
   runMonitorCheck();
+});
+
+// Auto-complete scheduled maintenance every minute
+cron.schedule('* * * * *', () => {
+  autoCompleteScheduledMaintenance();
 });
 
 // Calculate daily uptime at midnight
